@@ -1,0 +1,367 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Decode & Detect Plan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single readable column, sticky section index on wide screens, tables and decision gates as the main structures. */
+:root{
+  --bg:#f6f7f5; --surface:#ffffff; --fg:#17201c; --muted:#5a6660; --line:#d9dfdb;
+  --accent:#0d6b57; --accent-soft:#dff0ea; --warn:#9a5b00; --warn-soft:#fbefd6;
+  --bad:#a3322b; --bad-soft:#f8e1de; --good:#2b6b2f; --good-soft:#e1f1e0;
+  --font-display:'Bricolage Grotesque','Helvetica Neue',Arial,sans-serif;
+  --font-body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1512; --surface:#161e1a; --fg:#e6ece8; --muted:#9aa8a1; --line:#2a3631;
+  --accent:#4fc2a3; --accent-soft:#163a31; --warn:#e5b25a; --warn-soft:#3a2e14;
+  --bad:#ef8c84; --bad-soft:#3d1d1a; --good:#8fd18f; --good-soft:#1b3a1d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1512; --surface:#161e1a; --fg:#e6ece8; --muted:#9aa8a1; --line:#2a3631;
+  --accent:#4fc2a3; --accent-soft:#163a31; --warn:#e5b25a; --warn-soft:#3a2e14;
+  --bad:#ef8c84; --bad-soft:#3d1d1a; --good:#8fd18f; --good-soft:#1b3a1d; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.6 var(--font-body);margin:0;
+  padding-block:32px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1040px;margin:0 auto;display:grid;grid-template-columns:200px minmax(0,1fr);gap:40px}
+nav{position:sticky;top:24px;align-self:start;font-size:14px}
+nav a{display:block;color:var(--muted);text-decoration:none;padding:5px 0 5px 12px;border-left:2px solid var(--line)}
+nav a:hover,nav a:focus-visible{color:var(--fg);border-left-color:var(--accent);outline:none}
+main{min-width:0;display:flex;flex-direction:column;gap:56px}
+h1,h2,h3{font-family:var(--font-display);line-height:1.15;text-wrap:balance;margin:0}
+h1{font-size:clamp(30px,5vw,44px);letter-spacing:-.01em}
+h2{font-size:26px;margin-bottom:6px}
+h3{font-size:18px;margin-bottom:6px}
+p{margin:0 0 12px;max-width:68ch}
+.lede{font-size:18px;color:var(--muted);max-width:62ch}
+.eyebrow{font:500 12px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+section{display:flex;flex-direction:column;gap:16px;scroll-margin-top:24px}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.kv div{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 14px}
+.kv b{display:block;font:500 12px var(--font-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.kv span{font-size:15px}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:560px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:500 12px var(--font-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--bg)}
+tr:last-child td{border-bottom:0}
+code,.mono{font-family:var(--font-mono);font-size:.9em}
+td code{background:var(--bg);padding:1px 5px;border-radius:3px}
+.pill{display:inline-block;font:500 12px var(--font-mono);padding:2px 8px;border-radius:999px;white-space:nowrap}
+.p-core{background:var(--accent-soft);color:var(--accent)}
+.p-use{background:var(--warn-soft);color:var(--warn)}
+.p-skip{background:var(--bad-soft);color:var(--bad)}
+.p-ok{background:var(--good-soft);color:var(--good)}
+.note{border-left:3px solid var(--warn);background:var(--warn-soft);padding:12px 16px;border-radius:0 6px 6px 0;max-width:72ch}
+.note.good{border-left-color:var(--accent);background:var(--accent-soft)}
+.note p:last-child{margin:0}
+ol.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0;border-left:2px solid var(--line)}
+ol.steps li{padding:2px 0 18px 20px;position:relative}
+ol.steps li::before{content:"";position:absolute;left:-7px;top:9px;width:12px;height:12px;border-radius:50%;background:var(--accent)}
+ol.steps .t{font:500 13px var(--font-mono);color:var(--accent)}
+ul{margin:0 0 12px;padding-left:20px;max-width:68ch}
+li{margin-bottom:4px}
+pre{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px;overflow-x:auto;font:13px/1.55 var(--font-mono);margin:0}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.cols>div{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;min-width:0}
+.cols h3{font-size:16px}
+.cols p,.cols ul{font-size:14.5px}
+.theme{position:fixed;right:max(12px,env(safe-area-inset-right,0px));top:max(12px,env(safe-area-inset-top,0px));font:500 12px var(--font-mono);background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer;z-index:20}
+.theme:focus-visible{outline:2px solid var(--accent)}
+@media (max-width:820px){.wrap{grid-template-columns:minmax(0,1fr)}nav{position:static;display:flex;flex-wrap:wrap;gap:4px 14px}nav a{border-left:0;padding:2px 0}}
+</style>
+
+<button class="theme" id="themeBtn" type="button">Theme</button>
+
+<div class="wrap">
+<nav aria-label="Sections">
+  <a href="#summary">Recommendation</a>
+  <a href="#facts">What the data is</a>
+  <a href="#criteria">Criteria coverage</a>
+  <a href="#ideas">Judges' six ideas</a>
+  <a href="#validation">5-fold validation</a>
+  <a href="#features">Feature families</a>
+  <a href="#model">Model stack</a>
+  <a href="#timeline">Day timeline</a>
+  <a href="#risks">Risks and gates</a>
+  <a href="#deliver">Deliverables</a>
+  <a href="#handoff">Brief for Opus</a>
+</nav>
+
+<main>
+
+<header>
+  <div class="eyebrow">Decode &amp; Detect · UKCBT × XRPL · 24 October 2026</div>
+  <h1>Plan: a graph-feature ranker with a rule layer</h1>
+  <p class="lede">One approach aimed at the headline score (100 × Average Precision on the test set) and at the written criteria: reproducibility, a clear method, honest limits. Submission closes 16:30 London.</p>
+</header>
+
+<section id="summary">
+  <h2>Recommendation</h2>
+  <p>Build a transaction-level ranker in LightGBM on wallet and graph features, add a small set of readable rules for the report, and rank-blend a wallet-level view into it. Validate with 5-fold grouped cross-validation so the score we see tracks the test score. No model touches the data until this plan is agreed.</p>
+  <div class="kv">
+    <div><b>Primary objective</b><span>Maximise AP on the 40,101-row test set</span></div>
+    <div><b>Main risk</b><span>~20,000 normal "relay" rows that look like laundering</span></div>
+    <div><b>Validation</b><span>5-fold grouped, plus leave-one-family-out</span></div>
+    <div><b>Hard stop</b><span>Final upload by 16:00, deadline 16:30</span></div>
+  </div>
+  <div class="note good"><p>The six judge ideas are not six projects. Five of them become feature families feeding one model, and the sixth (the LLM case writer) only helps the pitch. That keeps the work in one reproducible pipeline.</p></div>
+</section>
+
+<section id="facts">
+  <h2>What the data is</h2>
+  <p>From the README and a profile of <code>train/labels.csv</code>. Nothing has been modelled.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Item</th><th>Fact</th></tr></thead>
+    <tbody>
+      <tr><td>Folder tree</td><td><code>decode-and-detect-training-data/</code> holds <code>README.md</code>, <code>payments.py</code>, <code>starter_notebook.ipynb</code>, <code>checksums.json</code>, <code>train/</code> (blocks, transactions, transfers parquet, <code>labels.csv</code>, <code>market_rates.csv</code>) and <code>validation/</code> (same files, no labels). <code>validation/</code> came with the download; it is dated 20 Oct.</td></tr>
+      <tr><td>Train size</td><td>40,131 transactions, 60,557 transfer legs. 1,250 suspicious (3.1%), 38,881 normal.</td></tr>
+      <tr><td>Test set</td><td>40,101 transactions, separate download, not in the folder yet. Wallets and hashes are disjoint from train. Test has batch variations absent from training.</td></tr>
+      <tr><td>Practice split</td><td><code>validation/</code>: 33,862 transactions, unlabelled. The site does not score it.</td></tr>
+      <tr><td>Label columns</td><td><code>family</code>, <code>difficulty</code>, <code>scenario_id</code>, <code>cohort_id</code>. Not available at test time, so analysis and fold-building only.</td></tr>
+      <tr><td>Suspicious mix</td><td>Easy 800 · medium 225 · hard 225. Of the hard ones, 25 are ambiguous with labels independent of any feature.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Label families (train)</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Family</th><th>Suspicious</th><th>Rows</th><th>Reading</th></tr></thead>
+    <tbody>
+      <tr><td><code>aggregate_relay</code></td><td>102</td><td>10,200</td><td>1% positive. The main false-positive trap.</td></tr>
+      <tr><td><code>distributed_relay</code></td><td>98</td><td>9,800</td><td>1% positive. Same trap.</td></tr>
+      <tr><td><code>fan_out_in</code></td><td>178</td><td>330</td><td>Split then gather.</td></tr>
+      <tr><td><code>multi_stage</code></td><td>173</td><td>338</td><td>Longer flows, medium and hard.</td></tr>
+      <tr><td><code>bipartite</code></td><td>134</td><td>286</td><td>Group pays group.</td></tr>
+      <tr><td><code>stack</code></td><td>116</td><td>220</td><td>Layered middlemen.</td></tr>
+      <tr><td><code>fan_in</code> / <code>fan_out</code></td><td>101 / 92</td><td>177 / 167</td><td>Collector and splitter.</td></tr>
+      <tr><td><code>cycle</code> / <code>chain</code> / <code>random</code></td><td>78 / 73 / 80</td><td>191 / 139 / 258</td><td>Loops, peels, irregular.</td></tr>
+      <tr><td><code>ambiguous</code></td><td>25</td><td>25</td><td>Unpredictable by design. Do not chase.</td></tr>
+      <tr><td><code>background</code></td><td>0</td><td>18,000</td><td>Ordinary activity.</td></tr>
+    </tbody>
+  </table></div>
+  <p>About 20,000 of the 40,131 rows sit in the two relay families, and only about 200 of those are positive. Ranking those few above the look-alikes is where most of the AP is decided.</p>
+</section>
+
+<section id="criteria">
+  <h2>Criteria coverage</h2>
+  <p>What the organisers say they will judge or verify, and how this plan answers each. The score is the ranking criterion; the rest decide whether a high score counts.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Criterion (source)</th><th>How the plan meets it</th><th>Confidence</th></tr></thead>
+    <tbody>
+      <tr><td>Higher AP wins; top three verified entries win (scoring slide)</td><td>Ranking-focused model, continuous rank-normalised scores, no ties, tuned only on grouped folds.</td><td><span class="pill p-use">Depends on test shift</span></td></tr>
+      <tr><td>Results reproducible, or entry may be rejected (rules)</td><td>One <code>run.sh</code>, pinned dependencies, fixed seeds, a clean-checkout rerun before submitting, and a check that the rerun matches the uploaded CSV.</td><td><span class="pill p-ok">High</span></td></tr>
+      <tr><td>Team understands its solution (workflow slide)</td><td>Features map to named laundering shapes. A readable rule layer and feature-importance table back the write-up.</td><td><span class="pill p-ok">High</span></td></tr>
+      <tr><td>Method write-up under 10 slides or 4 pages: methodology, features, model, validation, results, findings, limitations</td><td>Written as we go from a fixed outline (see Deliverables). Limitations include the unpredictable ambiguous rows and synthetic-data caveat.</td><td><span class="pill p-ok">High</span></td></tr>
+      <tr><td>AI use disclosed with model, provider, prompts, settings (rules)</td><td>An <code>AI_USE.md</code> that logs model names and key prompts, kept up to date during the day.</td><td><span class="pill p-ok">High</span></td></tr>
+      <tr><td>Open-source licence, original work built on the day</td><td><code>LICENSE</code> (MIT) in the ZIP. Only organiser data. Libraries listed as not-ours.</td><td><span class="pill p-ok">High</span></td></tr>
+      <tr><td>Limit false positives (challenge slide)</td><td>Relay look-alike features and a per-family false-positive table in the report.</td><td><span class="pill p-use">Medium</span></td></tr>
+      <tr><td>Responsible language (XRPL deck)</td><td>Report says "flagged for review" and shows evidence, never "criminal".</td><td><span class="pill p-ok">High</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="ideas">
+  <h2>The judges' six ideas</h2>
+  <p>Mapped to the one pipeline. Only the first two carry real weight for the score.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Idea</th><th>Role here</th><th>Concrete output</th></tr></thead>
+    <tbody>
+      <tr><td>Mule network finder</td><td><span class="pill p-core">Core</span></td><td>Cluster wallets by shared funding and counterparties, score the cluster, project back to each transaction. Aimed at hard and multi-stage cases.</td></tr>
+      <tr><td>Money trail tracker</td><td><span class="pill p-core">Core</span></td><td>Path depth, chain length, one-use middle wallets, value kept per layer, time between hops.</td></tr>
+      <tr><td>Alert ranker</td><td><span class="pill p-core">Core</span></td><td>This is the task. LightGBM with a ranking objective, rank-blended, no ties.</td></tr>
+      <tr><td>Limit-dodge detector</td><td><span class="pill p-use">Feature</span></td><td>Amount similarity and clustering within fan-out and bipartite groups.</td></tr>
+      <tr><td>Fake trading detector</td><td><span class="pill p-use">Feature</span></td><td>Cycle detection, round trips, asset hopping through conversions.</td></tr>
+      <tr><td>Case summary writer (LLM)</td><td><span class="pill p-skip">Pitch only</span></td><td>No effect on AP. Optional for the demo, once the score work is frozen. Needs disclosure and must not feed predictions.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="validation">
+  <h2>5-fold validation</h2>
+  <p>The goal is a fold score that predicts the test score. The test set has unseen wallets and variations, so folds must not share wallets or scenarios.</p>
+  <div class="cols">
+    <div>
+      <h3>Main score: 5-fold grouped, stratified</h3>
+      <ul>
+        <li>Group rows that share wallets so a pattern never straddles train and fold.</li>
+        <li>Planted rows group by <code>scenario_id</code>. Normal rows group by wallet cluster.</li>
+        <li>Stratify on the positive label so each fold holds about 250 positives.</li>
+        <li>Fixed seed, assignment saved to disk and reused for every experiment.</li>
+        <li>Report mean AP and per-fold spread. A change smaller than the spread is noise.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Stress test: leave one family out</h3>
+      <ul>
+        <li>Hold out a whole family (for example <code>cycle</code>, then <code>multi_stage</code>) and fit on the rest.</li>
+        <li>The drop shows which features carry over to unseen variations.</li>
+        <li>Used to choose features, not to report the headline score.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Shift check, labels unused</h3>
+      <ul>
+        <li>Train a classifier to separate <code>train/</code> from <code>validation/</code> on features only.</li>
+        <li>Features that separate them easily are shift risks. Drop or rescale them.</li>
+        <li>Split identity is never a model feature.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="note"><p><b>Open design question, first task of the day.</b> In a one-week network with exchange and payroll hubs, wallet connected components may merge into one giant group, making wallet grouping useless. Fix: build components after removing very high-degree hubs, and fall back to <code>scenario_id</code> for planted rows. Check the component size distribution before fixing the fold rule.</p></div>
+  <h3>Rules for ourselves</h3>
+  <ul>
+    <li>Build graph features once over the whole train split, exactly as will be done for test. Folds split only the model fit.</li>
+    <li>Choose features, model and hyperparameters from fold scores only. Cap the number of ideas tried against one fold set.</li>
+    <li>Seal one or two families as a final check, used once before freezing.</li>
+    <li>Choose any rule threshold inside the training folds, never on the fold it is scored on.</li>
+    <li>A feature that looks too good needs an explanation. It may be a generator artefact such as amount precision or ledger-index patterns.</li>
+  </ul>
+</section>
+
+<section id="features">
+  <h2>Feature families</h2>
+  <p>All behavioural. Wallet addresses never enter the model. Windows of 10 minutes, 1 hour, 24 hours and the full week, because the hard cases need long history.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Family</th><th>Features</th><th>Targets</th></tr></thead>
+    <tbody>
+      <tr><td>Value and asset</td><td>USD value at the payment hour, asset pair, conversion spread (first-leg cost vs delivered value), leg count, fee in drops</td><td>All, conversions</td></tr>
+      <tr><td>Wallet activity</td><td>Sender and receiver counts, totals, distinct counterparties, age within the week, first-seen gap</td><td>Fan-in, fan-out</td></tr>
+      <tr><td>Pass-through</td><td>Forwarded share of received value, time to forward, similar-amount forwarding at several tolerances</td><td>Relay, chain</td></tr>
+      <tr><td>Path and depth</td><td>Longest upstream and downstream chain, one-use middle wallets, value retained per hop, delay per hop</td><td>Stack, multi-stage, chain</td></tr>
+      <tr><td>Group shape</td><td>Dense two-set blocks, repeated two-hop paths between one pair, source-out vs destination-in value</td><td>Bipartite, scatter-gather</td></tr>
+      <tr><td>Cycles</td><td>Return-to-start within a window, loop length, value returned vs sent, asset change on the way</td><td>Cycle, fake trading</td></tr>
+      <tr><td>Amount structure</td><td>Payout similarity within a sender, just-under-a-level clustering, round amounts</td><td>Fan-out, limit dodging</td></tr>
+      <tr><td>Relay look-alikes</td><td>Timing regularity, counterparty churn, amount spread, recurrence across the week</td><td>Aggregate and distributed relay</td></tr>
+      <tr><td>Cluster context</td><td>Wallet-cluster size, density, in-vs-out value, mean suspicion of neighbours (computed out-of-fold)</td><td>Hard, multi-stage</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="model">
+  <h2>Model stack</h2>
+  <div class="cols">
+    <div>
+      <h3>Layer 1: LightGBM ranker</h3>
+      <p>Gradient-boosted trees on the full feature set. Try the binary objective first, then a ranking objective, and keep whichever has the higher fold AP. Class weighting tuned inside folds.</p>
+    </div>
+    <div>
+      <h3>Layer 2: wallet-level view</h3>
+      <p>Score wallets and clusters on aggregated features, project each wallet's score onto its transactions, and rank-blend with Layer 1. Out-of-fold only, so nothing leaks through the neighbour features.</p>
+    </div>
+    <div>
+      <h3>Layer 3: readable rules</h3>
+      <p>Five to eight one-line flags such as "forwarded 90% within 10 minutes". Used in the report and as a small blend term only if they raise fold AP.</p>
+    </div>
+  </div>
+  <p>Baseline to beat: the starter notebook (logistic regression on 12 simple rules). We run it under our own folds first so every later number has a reference.</p>
+  <p>Final output: rank-normalise the blend into [0, 1] with unique values, one row per test transaction.</p>
+</section>
+
+<section id="timeline">
+  <h2>Day timeline</h2>
+  <p>Built backwards from 16:30. Gates are the points where we stop and decide, not just move on.</p>
+  <ol class="steps">
+    <li><div class="t">Now to +0:30</div><b>Plan locked.</b> This page agreed, Opus session briefed, test data dropped into <code>test-data/</code>.</li>
+    <li><div class="t">+0:30 to +1:30</div><b>Foundations.</b> Loader with USD valuation, fold assignment with the hub-aware grouping, starter baseline under 5 folds. <b>Gate:</b> a valid CSV uploaded early to confirm format.</li>
+    <li><div class="t">+1:30 to +4:30</div><b>Features and model.</b> Add feature families one at a time, keep those that beat fold spread. Leave-one-family-out after each batch. <b>Gate at +3:00:</b> if fold AP is flat for two rounds, switch effort to the relay look-alikes.</li>
+    <li><div class="t">+4:30 to +6:00</div><b>Blend and stability.</b> Layer 2 view, rank blend, shift check, sealed-family check. <b>Gate:</b> freeze the feature set.</li>
+    <li><div class="t">+6:00 to 15:00</div><b>Reproduce.</b> Clean checkout, one command, compare output to the chosen CSV byte for byte.</li>
+    <li><div class="t">15:00 to 16:00</div><b>Package and upload.</b> ZIP, README, LICENSE, AI_USE, method pages. Upload by 16:00 to leave margin before 16:30.</li>
+  </ol>
+  <p class="mono" style="color:var(--muted)">Clock times assume a 08:30 start. Adjust the offsets if the real start differs.</p>
+</section>
+
+<section id="risks">
+  <h2>Risks and gates</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Risk</th><th>Effect</th><th>Response</th></tr></thead>
+    <tbody>
+      <tr><td>Relay look-alikes flood the top of the ranking</td><td>AP collapses despite good easy-case detection</td><td>Dedicated relay features, per-family AP reported on every run, relay-only model as a blend term.</td></tr>
+      <tr><td>Folds leak through shared wallets</td><td>Fold AP far above test AP</td><td>Hub-aware grouping, leave-one-family-out as the cross-check. Compare fold AP to the first uploaded test score.</td></tr>
+      <tr><td>Test has variations absent from training</td><td>Memorised patterns fail</td><td>Shape-based features over counts tied to training amounts, shift check, stability across folds.</td></tr>
+      <tr><td>Generator artefacts used as signal</td><td>High fold score, poor test score</td><td>Question any feature with outsized importance, test with and without it.</td></tr>
+      <tr><td>Over-tuning to the folds</td><td>Optimistic validation</td><td>Cap the experiments per fold set, sealed family at the end.</td></tr>
+      <tr><td>Reproduction fails late</td><td>Entry rejected</td><td>Reproduce at +6:00, not at 15:30. Pin versions and seeds from the first run.</td></tr>
+      <tr><td>Ambiguous 25 rows</td><td>Small unavoidable AP loss</td><td>Accept it. Report separately in findings.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="deliver">
+  <h2>Deliverables</h2>
+  <div class="cols">
+    <div>
+      <h3>Predictions CSV</h3>
+      <ul>
+        <li><code>TRANSACTION_HASH,score</code></li>
+        <li>All 40,101 rows once, scores in [0, 1], unique values</li>
+        <li>At most 12 MiB. Checked locally before each upload.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Code ZIP (8 MiB max)</h3>
+      <ul>
+        <li>Source, <code>run.sh</code>, pinned <code>requirements.txt</code>, Python version</li>
+        <li><code>README.md</code> with the exact command and run time</li>
+        <li><code>LICENSE</code> (MIT), <code>AI_USE.md</code>, not-ours list</li>
+        <li>Team name, captain, member list, commit hash, validation results</li>
+        <li>No data, no virtual environment, no secrets</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Method write-up (under 10 slides)</h3>
+      <ul>
+        <li>Problem and data</li>
+        <li>Validation design</li>
+        <li>Features by laundering shape</li>
+        <li>Model and blend</li>
+        <li>Results, per-family AP</li>
+        <li>Findings and false positives</li>
+        <li>Limitations and responsible use</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="handoff">
+  <h2>Brief for the Opus session</h2>
+  <p>To paste into the VS Code session that builds this. It carries the constraints so they are not rediscovered.</p>
+<pre>Goal: maximise 100 x Average Precision on the 40,101-row test set.
+Data: decode-and-detect-training-data/train (labelled) and
+      validation (unlabelled). Test goes in test-data/. Never commit data.
+
+Constraints
+- Score one row per TRANSACTION_HASH, scores in [0,1], no ties.
+- Features must be behavioural. No wallet identity. Split origin is
+  not a feature. Organiser data only.
+- Compute graph features once over a whole split (as for test);
+  folds split only the model fit.
+- 5-fold stratified grouped CV. Groups: scenario_id for planted rows,
+  hub-aware wallet clusters for the rest. Save the fold map to disk.
+- Also run leave-one-family-out. Seal two families for one final check.
+- Report AP overall and per family on every run.
+- Reproducible: seeds, pinned deps, one run.sh. Keep AI_USE.md updated.
+
+Order of work
+1. Loader + USD valuation (see payments.py) and fold map.
+2. Starter-notebook baseline under our folds = number to beat.
+3. Add feature families one at a time; keep only gains above fold spread.
+4. LightGBM, then wallet-level blend, then rank-normalise.
+5. Reproduce from a clean checkout before any final upload.</pre>
+</section>
+
+</main>
+</div>
+
+<script>
+(function(){
+  var btn=document.getElementById('themeBtn'),root=document.documentElement;
+  try{var s=localStorage.getItem('dd-theme');if(s)root.setAttribute('data-theme',s)}catch(e){}
+  btn.addEventListener('click',function(){
+    var dark=root.getAttribute('data-theme')==='dark'||(!root.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme: dark)').matches);
+    var next=dark?'light':'dark';root.setAttribute('data-theme',next);
+    try{localStorage.setItem('dd-theme',next)}catch(e){}
+  });
+})();
+</script>
+
+</body></html>

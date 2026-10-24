@@ -1,3 +1,14 @@
 *.pptx
 *.ppt
 *.pdf
+decode-and-detect-training-data/
+.venv/
+plan.html
+.DS_Store
+cache/
+test-data/
+predictions.csv
+*.zip
+__pycache__/
+decode-and-detect-test-data/
+upload_v*.csv
