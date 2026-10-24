@@ -50,13 +50,14 @@ def main():
     ap.add_argument("--top", type=int, default=600)
     ap.add_argument("--neg", type=float, default=0.4, help="bottom share of the teacher ranking used as normal")
     ap.add_argument("--union", action="store_true")
+    ap.add_argument("--cons", action="store_true", help="add value-conservation features of motif clusters")
     a = ap.parse_args()
     t0 = time.time()
     train, test = load_split(a.train), load_split(a.test)
     labels = pd.read_csv(Path(a.train) / "labels.csv").rename(columns={"TRANSACTION_HASH": "hash"})
     y = train[["hash"]].merge(labels, on="hash", how="left", validate="1:1").is_suspicious.to_numpy()
-    _, U_train = assemble(train, a.train, a.union)
-    X_test, U_test = assemble(test, a.test, a.union)
+    _, U_train = assemble(train, a.train, a.union, a.cons)
+    X_test, U_test = assemble(test, a.test, a.union, a.cons)
     assert list(U_train.columns) == list(U_test.columns)
 
     base = score_weighted(U_train, y, np.ones(len(y)), U_test)        # model A without self-training
