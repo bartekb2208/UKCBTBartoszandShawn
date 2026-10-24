@@ -18,7 +18,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 FP = ROOT / "final_package"
-OURS = ["predict.py", "predict_v6.py", "cv.py", "run_baseline.py", "exp.py", "run_shawn_with_motifs.py"]
+OURS = ["predict.py", "predict_v6.py", "cv.py", "run_baseline.py", "exp.py", "run_shawn_with_motifs.py", "self_train_v12.py"]
 OURS_DD = ["__init__.py", "baseline.py", "evaluate.py", "features.py", "folds.py", "load.py", "model.py", "submit.py", "motifs.py"]
 SHAWN = ["config.py", "load.py", "features.py", "scenarios.py", "model.py", "run.py", "LICENSE"]
 
@@ -34,6 +34,11 @@ RUN = {
     "blend_motif_both": '(cd ours && "$PY" src/predict_v6.py --train "$TRAIN" --test "$TEST" --out "$WORK/a.csv")\n'
                         '"$PY" ours/src/run_shawn_with_motifs.py "$TRAIN" "$TEST" "$WORK/shawn_out"\n'
                         '"$PY" blend_v5.py "$WORK/a.csv" "$WORK/shawn_out/submission.csv" 0.5 predictions.csv "$TEST"',
+    "st_blend": '(cd ours && "$PY" src/predict_v6.py --train "$TRAIN" --test "$TEST" --out "$WORK/a.csv")\n'
+                '"$PY" ours/src/run_shawn_with_motifs.py "$TRAIN" "$TEST" "$WORK/shawn_out"\n'
+                '"$PY" blend_v5.py "$WORK/a.csv" "$WORK/shawn_out/submission.csv" 0.5 "$WORK/teacher.csv" "$TEST"\n'
+                '(cd ours && "$PY" src/self_train_v12.py --train "$TRAIN" --test "$TEST" --teacher "$WORK/teacher.csv" --out "$WORK/a_st.csv")\n'
+                '"$PY" blend_v5.py "$WORK/a_st.csv" "$WORK/shawn_out/SHAWN_FILE" 0.5 predictions.csv "$TEST"',
     "blend3": '(cd ours && "$PY" src/predict_v6.py --train "$TRAIN" --test "$TEST" --out "$WORK/a.csv")\n'
               '(cd ours && "$PY" src/predict_v6.py --union --train "$TRAIN" --test "$TEST" --out "$WORK/u.csv")\n'
               '(cd shawn && "$PY" run.py --train "$TRAIN" --test "$TEST" --out "$WORK/shawn_out")\n'
@@ -47,6 +52,7 @@ def main():
     ap.add_argument("--test", default=str(ROOT / "decode-and-detect-test-data"))
     ap.add_argument("--boost", choices=["dist", "dist+agg"], help="lift ultra-regular relay motifs (motif_boost.py)")
     ap.add_argument("--floor", default="0.97")
+    ap.add_argument("--shawn-file", default="submission.csv", help="which model B output the st_blend mode blends with")
     a = ap.parse_args()
     need_shawn = a.mode != "a"
     out = ROOT / "submissions" / a.name
@@ -59,7 +65,7 @@ def main():
     run_sh = ('#!/usr/bin/env bash\n# Reproduce predictions.csv (python 3.14.6, requirements.txt). Data next to this file.\n'
               'set -euo pipefail\ncd "$(dirname "$0")"\nROOT="$(pwd)"\n'
               'TRAIN="$(cd "${TRAIN:-decode-and-detect-training-data/train}" && pwd)"\nTEST="$(cd "${TEST:-decode-and-detect-test-data}" && pwd)"\n'
-              'PY="${PY:-python3}"\nWORK="$ROOT/work"\nmkdir -p "$WORK"\n' + RUN[a.mode] + '\n'
+              'PY="${PY:-python3}"\nWORK="$ROOT/work"\nmkdir -p "$WORK"\n' + RUN[a.mode].replace("SHAWN_FILE", a.shawn_file) + '\n'
               + (f'mv predictions.csv "$WORK/unboosted.csv"\n"$PY" motif_boost.py "$WORK/unboosted.csv" "$TEST" predictions.csv {a.floor} {a.boost}\n' if a.boost else '')
               + 'echo "done: $ROOT/predictions.csv"\n')
     readme = (f"# {a.name}\n\n{a.note}\n\nReproduce: `PY=python3 ./run.sh` (Python 3.14.6, `pip install -r requirements.txt`; organiser data in "

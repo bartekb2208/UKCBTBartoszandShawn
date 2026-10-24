@@ -31,5 +31,12 @@ def build_with_motifs(e):
 
 model_b_features.build_features = build_with_motifs
 model_b_run.build_features = build_with_motifs              # run.py imported the name directly
-sys.argv = ["run.py", "--train", sys.argv[1], "--test", sys.argv[2], "--out", sys.argv[3]]
-model_b_run.main()
+
+
+def main(train_dir, test_dir, out_dir):
+    sys.argv = ["run.py", "--train", train_dir, "--test", test_dir, "--out", out_dir]
+    model_b_run.main()
+
+
+if __name__ == "__main__":
+    main(*sys.argv[1:4])
