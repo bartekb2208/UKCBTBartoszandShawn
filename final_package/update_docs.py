@@ -1,6 +1,9 @@
 """Refresh only the documents inside an already-verified code ZIP; every code file is copied byte-for-byte.
 
-Usage: python final_package/update_docs.py <verified code.zip> <out code.zip> "<README note>" "<time text>"
+Usage: python final_package/update_docs.py <verified code.zip> <out code.zip> "<README note>" "<time text>" [<variant code.zip>]
+
+With a variant ZIP, its run.sh replaces the verified one (the chosen version differs only in its last steps,
+for example the blend weight); every other code file still comes byte-for-byte from the verified ZIP.
 
 Documents come from final_package/ (README_final.md becomes README.md) and from the repository (ours/NOTES.md,
 shawn/PROMPTS.md, shawn/README.md, shawn/report.md). The script prints the SHA-256 of every code file in both
@@ -20,9 +23,16 @@ DOCS = {"README.md": None, "REPORT.md": FP / "REPORT.md", "AI_USE.md": FP / "AI_
 SECRET = re.compile(r"api[_-]?key|secret|passw(or)?d|BEGIN [A-Z ]*PRIVATE|seed phrase|@gmail|/Users/|/private/tmp", re.I)
 
 src, dst, note, time_text = sys.argv[1:5]
+variant = sys.argv[5] if len(sys.argv) > 5 else None
 with zipfile.ZipFile(src) as z:
     entries = {i.filename: (i, z.read(i.filename)) for i in z.infolist()}
+if variant:
+    with zipfile.ZipFile(variant) as z:
+        entries["run.sh"] = (entries["run.sh"][0], z.read("run.sh"))
 code = {k: hashlib.sha256(v).hexdigest() for k, (i, v) in entries.items() if k not in DOCS}
+if variant:
+    print("run.sh taken from", variant, "- its last lines:")
+    print("\n".join(entries["run.sh"][1].decode().strip().splitlines()[-3:]))
 new = {}
 for name in entries:
     if name in DOCS:

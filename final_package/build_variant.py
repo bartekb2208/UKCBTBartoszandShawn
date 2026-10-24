@@ -80,6 +80,16 @@ RUN = {
                     '(cd ours && "$PY" src/self_train_v12.py --cons --train "$TRAIN" --test "$TEST" --teacher "$WORK/teacher1.csv" --out "$WORK/a_cons_st.csv")\n'
                     '(cd ours && "$PY" src/self_train_v12.py --cons --train "$TRAIN" --test "$TEST" --teacher "$WORK/teacher2.csv" --top 900 --out "$WORK/a_cons_st2.csv")\n'
                     '"$PY" blend_v5.py "$WORK/a_cons_st2.csv" "$WORK/shawn_co/submission_selftrain_2rounds.csv" 0.5 predictions.csv "$TEST"',
+    "cotrain3": '(cd ours && "$PY" src/predict_v6.py --train "$TRAIN" --test "$TEST" --out "$WORK/a.csv")\n'
+                '"$PY" ours/src/run_shawn_with_motifs.py "$TRAIN" "$TEST" "$WORK/shawn_out"\n'
+                '"$PY" blend_v5.py "$WORK/a.csv" "$WORK/shawn_out/submission.csv" 0.5 "$WORK/teacher1.csv" "$TEST"\n'
+                '(cd ours && "$PY" src/self_train_v12.py --train "$TRAIN" --test "$TEST" --teacher "$WORK/teacher1.csv" --out "$WORK/a_st.csv")\n'
+                '"$PY" blend_v5.py "$WORK/a_st.csv" "$WORK/shawn_out/submission_selftrain_top900.csv" 0.5 "$WORK/teacher2.csv" "$TEST"\n'
+                '(cd ours && "$PY" src/self_train_v12.py --train "$TRAIN" --test "$TEST" --teacher "$WORK/teacher2.csv" --top 900 --out "$WORK/a_st2.csv")\n'
+                '"$PY" ours/src/run_shawn_cotrain.py "$TRAIN" "$TEST" "$WORK/shawn_co" "$WORK/teacher2.csv"\n'
+                '"$PY" blend_v5.py "$WORK/a_st2.csv" "$WORK/shawn_co/submission_selftrain_2rounds.csv" 0.3 "$WORK/teacher3.csv" "$TEST"\n'
+                '"$PY" ours/src/run_shawn_cotrain.py "$TRAIN" "$TEST" "$WORK/shawn_co3" "$WORK/teacher3.csv"\n'
+                '"$PY" blend_v5.py "$WORK/a_st2.csv" "$WORK/shawn_co3/submission_selftrain_2rounds.csv" 0.5 predictions.csv "$TEST"',
     "blend3": '(cd ours && "$PY" src/predict_v6.py --train "$TRAIN" --test "$TEST" --out "$WORK/a.csv")\n'
               '(cd ours && "$PY" src/predict_v6.py --union --train "$TRAIN" --test "$TEST" --out "$WORK/u.csv")\n'
               '(cd shawn && "$PY" run.py --train "$TRAIN" --test "$TEST" --out "$WORK/shawn_out")\n'
