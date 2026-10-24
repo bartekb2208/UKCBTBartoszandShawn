@@ -16,7 +16,7 @@ import config as C
 
 REQUIRED_DOCS = ["README.md", "PROMPTS.md", "TEAM.md", "LICENSE", "requirements.txt"]
 REPORT_GLOBS = ["report*.pdf", "slides*.pdf", "report*.md", "method*.pdf", "*.pptx"]
-CODE = ["config.py", "load.py", "features.py", "scenarios.py", "model.py", "run.py", "package.py"]
+CODE = ["config.py", "load.py", "features.py", "scenarios.py", "model.py", "run.py", "ensemble.py", "package.py"]
 
 
 def main():

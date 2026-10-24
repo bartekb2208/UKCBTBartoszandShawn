@@ -8,7 +8,18 @@ python package.py --test ../test         # checks every submission rule, builds 
 ```
 Paths are the organisers' folders as downloaded. Dry run without the test download: `--test ../validation`.
 Output: `out/submission.csv` (TRANSACTION_HASH,score), every test transaction once, all scores unique.
-Hardware: CPU only, ~6 minutes on a laptop, ~2 GB RAM. Seed 42. No network, APIs or LLM calls at run time.
+Hardware: CPU only, ~13 minutes on a 2-core machine (faster with more cores), ~3 GB RAM. Seed 42. No network, APIs or LLM calls at run time.
+
+## Submission variants (all written by the same code)
+`python run.py --train ../train --test ../test` writes four files to out/:
+- `submission.csv`: rank blend of main model and mixture (weight chosen on grouped CV)
+- `submission_main_only.csv`, `submission_mixture_only.csv`: the two components alone
+- `submission_selftrain.csv`: blend re-scored after self-training on confident test pseudo-labels (2-fold cross-fitted on test)
+- `submission_selftrain_2rounds.csv`, `submission_selftrain_top900.csv`: two self-training rounds; 900 pseudo-positives
+- `submission_floor01_blend.csv`, `submission_floor03_blend.csv`: blends with a mixture that ranks planted shapes above relay/background
+`python run.py --no-links --out out_nolinks ...` writes the same four files without the learned scenario-link features.
+Ensemble (rank average, equal weights, strict ranking):
+`python ensemble.py out/ensemble_AB.csv out/submission.csv out_nolinks/submission.csv out/submission_mixture_only.csv out_nolinks/submission_mixture_only.csv`
 
 ## Findings from the training data (drive the design)
 - 700 busy wallets, ~115 payments each. Planted scenarios are bursts of one-off pairs (median 1 payment per pair)
