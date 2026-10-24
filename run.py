@@ -27,7 +27,10 @@ def main():
     a.add_argument("--train", default=str(C.TRAIN_DIR))
     a.add_argument("--test", default=str(C.TEST_DIR))
     a.add_argument("--out", default=str(C.OUT_DIR))
+    a.add_argument("--no-links", action="store_true", help="variant B: skip learned scenario-link features")
+    a.add_argument("--seeds", type=int, default=C.N_SEEDS, help="LightGBM seeds per fold (default 2)")
     args = a.parse_args()
+    C.N_SEEDS = args.seeds
     random.seed(C.SEED); np.random.seed(C.SEED)
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
@@ -39,8 +42,9 @@ def main():
 
     Ftr, ctx_tr = build_features(tr)
     Fte, ctx_te = build_features(te)
-    Ltr, Lte = link_features(tr, ctx_tr, Ftr, lab["scenario_id"].values, te, ctx_te, Fte, seed=C.SEED)
-    Ftr, Fte = pd.concat([Ftr, Ltr], axis=1), pd.concat([Fte, Lte], axis=1)
+    if not args.no_links:
+        Ltr, Lte = link_features(tr, ctx_tr, Ftr, lab["scenario_id"].values, te, ctx_te, Fte, seed=C.SEED)
+        Ftr, Fte = pd.concat([Ftr, Ltr], axis=1), pd.concat([Fte, Lte], axis=1)
     print(f"[feat] {Ftr.shape[1]} features in {time.time() - t0:.0f}s")
 
     variants, oof, imp, res, fam = train_and_predict(Ftr, ctx_tr, lab, Fte, ctx_te)
@@ -50,6 +54,7 @@ def main():
         assert sub["score"].nunique() == len(sub), "ties found"
         sub.to_csv(out / name, index=False, float_format="%.10f")
     final_te = variants["submission.csv"]
+    oof.assign(TRANSACTION_HASH=tr["tx"].values).to_csv(out / "train_oof.csv", index=False)
 
     res["seconds"] = round(time.time() - t0)
     (out / "results.json").write_text(json.dumps(res, indent=2))

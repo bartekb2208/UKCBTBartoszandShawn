@@ -23,6 +23,7 @@ MOTIF_FAMILIES = ["bipartite", "chain", "cycle", "fan_in", "fan_out", "fan_out_i
 RELAY_FAMILIES = ["aggregate_relay", "distributed_relay"]
 AUX_PARAMS = dict(n_estimators=400, learning_rate=0.05, num_leaves=31, min_child_samples=20, subsample=0.8,
                   subsample_freq=1, colsample_bytree=0.6, verbose=-1)
+MIX_FLOOR = 0.0   # 0.1 scored better in CV but worse on the leaderboard (v4A); v3 setting kept
 EXPERT_PARAMS = dict(n_estimators=500, learning_rate=0.03, num_leaves=15, min_child_samples=10, subsample=0.8,
                      subsample_freq=1, colsample_bytree=0.6, verbose=-1)
 
@@ -85,6 +86,26 @@ def strict_ranking(*keys):
     return out
 
 
+def self_train(X, y, Xt, score_te, top=600, neg_quantile=0.4, seed=C.SEED):
+    """Pseudo-label the test week (confident top as positive, bottom 40% as negative), add to training at half
+    weight, and re-score test with 2-fold cross-fitting so no test row is scored by a model that saw its own
+    pseudo-label. Adapts to batch variations present in test but absent from training."""
+    r = rankdata(-score_te)
+    pos, neg = r <= top, r >= neg_quantile * len(r)
+    keep = pos | neg
+    halves = np.random.RandomState(seed).randint(0, 2, len(Xt))
+    out = np.zeros(len(Xt))
+    for h in (0, 1):
+        use = keep & (halves != h)
+        Xa = pd.concat([X, Xt[use]], axis=0)
+        ya = np.r_[y, pos[use].astype(int)]
+        wa = np.r_[np.ones(len(y)), np.full(use.sum(), 0.5)]
+        m = lgb.LGBMClassifier(**C.LGB_PARAMS, random_state=seed, n_jobs=2).fit(Xa, ya, sample_weight=wa)
+        out[halves == h] = m.predict_proba(Xt[halves == h])[:, 1]
+    print(f"[self] pseudo-labelled {pos.sum()} positive / {neg.sum()} negative test rows")
+    return out
+
+
 def train_and_predict(Ftr, ctx_tr, lab, Fte, ctx_te):
     y = lab["y"].values.astype(int)
     folds = list(GroupKFold(n_splits=C.N_FOLDS).split(Ftr, y, make_groups(lab)))
@@ -117,13 +138,14 @@ def train_and_predict(Ftr, ctx_tr, lab, Fte, ctx_te):
     # 3. decoy expert on planted-shape payments only, then the mixture
     q, q_te, _ = _cv(Xtr, y, folds, Xte, EXPERT_PARAMS, C.N_SEEDS, train_mask=motif.astype(bool))
     res["expert_auc_within_shapes"] = 100 * roc_auc_score(y[motif == 1], q[motif == 1])
-    mix_oof, mix_te = a_m * q, a_m_te * q_te
+    # floor: any planted shape outranks relay/background payments, then the expert orders within shapes
+    mix_oof, mix_te = a_m * (q + MIX_FLOOR), a_m_te * (q_te + MIX_FLOOR)
     rm = slices(y, mix_oof, lab); show("mixture", rm)
     print(f"[expert] laundering vs look-alike AUC within planted shapes: {res['expert_auc_within_shapes']:.1f}")
 
     # 4. blend weight on out-of-fold AP
     best_w, best = 1.0, -1
-    for w in (1.0, 0.9, 0.8, 0.7, 0.6, 0.5):
+    for w in (1.0, 0.9, 0.8, 0.7, 0.6, 0.5):   # v3 grid
         a = ap(y, w * rankdata(main_oof) + (1 - w) * rankdata(mix_oof))
         if a > best + 0.05:
             best_w, best = w, a
@@ -131,13 +153,28 @@ def train_and_predict(Ftr, ctx_tr, lab, Fte, ctx_te):
     blend_te = best_w * rankdata(main_te) / len(main_te) + (1 - best_w) * rankdata(mix_te) / len(mix_te)
     rb = slices(y, blend_oof, lab); show(f"blend (w_main={best_w})", rb)
 
+    self_te = self_train(X2, y, Xt2, blend_te)
+    st1 = 0.5 * rankdata(self_te) / len(self_te) + 0.5 * blend_te
+    self2_te = self_train(X2, y, Xt2, st1, seed=C.SEED + 1)                 # second round on improved scores
+    st2 = 0.5 * rankdata(self2_te) / len(self2_te) + 0.5 * st1
+    self900_te = self_train(X2, y, Xt2, blend_te, top=900, seed=C.SEED + 2)  # more pseudo-positives
+    st900 = 0.5 * rankdata(self900_te) / len(self900_te) + 0.5 * blend_te
+
     res.update({f"main_{k}": v for k, v in (r2 if r2["ap"] > r1["ap"] else r1).items()})
     res.update({f"mixture_{k}": v for k, v in rm.items()})
     res.update({f"final_{k}": v for k, v in rb.items()})
     res["blend_weight_main"] = best_w
+    # floor variants (planted shapes always outrank relay/background), isolated on the v3 base
+    floor_te = {f: a_m_te * (q_te + f) for f in (0.1, 0.3)}
     variants = {
         "submission.csv": strict_ranking(blend_te, main_te, mix_te),
         "submission_main_only.csv": strict_ranking(main_te, p1),
         "submission_mixture_only.csv": strict_ranking(mix_te, main_te),
+        "submission_floor01_blend.csv": strict_ranking(0.9 * rankdata(main_te) / len(main_te) + 0.1 * rankdata(floor_te[0.1]) / len(main_te), main_te),
+        "submission_floor03_blend.csv": strict_ranking(0.7 * rankdata(main_te) / len(main_te) + 0.3 * rankdata(floor_te[0.3]) / len(main_te), main_te),
+        "submission_selftrain.csv": strict_ranking(st1, blend_te),
+        "submission_selftrain_2rounds.csv": strict_ranking(st2, blend_te),
+        "submission_selftrain_top900.csv": strict_ranking(st900, blend_te),
     }
-    return variants, blend_oof, imp, res, per_family(y, blend_oof, lab)
+    oofs = pd.DataFrame({"main": main_oof, "mixture": mix_oof, "blend": blend_oof, "y": y})
+    return variants, oofs, imp, res, per_family(y, blend_oof, lab)

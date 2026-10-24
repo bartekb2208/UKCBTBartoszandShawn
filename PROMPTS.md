@@ -76,6 +76,28 @@ pipeline rebuilt for the real schema (load.py, features.py, model.py, run.py). G
 
 Output (8-12): ran v2 on the test data; analysed what limits the score (fast legitimate decoys among easy cases; medium and hard near-indistinguishable by design; all metadata fields carry no signal); built v3: learned scenario reconstruction (scenarios.py), auxiliary planted-shape and relay models, decoy expert and mixture, rank blend, three submission variants. Grouped CV AP 61.6. Method report (report.md) and code ZIP.
 
+### 13. 12:06
+> so i uploaded the v3_submission.csv with the submission_code.zip but i was wondering what are the other 2 submissions csv? the misture_only and main_only, is it compliant to upload that one and are we compliant dont make changes regarding this prompt just reply to me, continue doing what you were doing
+
+### 14. 12:23
+> the mixtures only got 70.4, 96% precision and 31% recall, and the main only got 71.0, 94% precision and 30% recall, the winning one which is the v3 submission got 71.1, precision of 94% and recall of 30% these are the current stats from V3, i think we should aim for 74 now, as the other groups are catching up and we require a higher score, also side note is it beneficial to run K-fold validation(and tell me what this is).
+
+### 15. 12:45
+> also some steering, after talking to the professional here it says to get more of the observable hard and the difficult mediums, its best to really look into the data, see what we are missing do some domain related research for those issues and general in this field so to break through this ma be useful but ensure we avoid regressions each iteration should improve ideally we should hit 75 to 76 score, [v4A results: blend 70.2, selftrain 70.4, mixture 69.6, main 70.1] ... we are regressing so lets ensure we improve much more, also let me currently what is our status where we are doing good, where we are lacking, what is missing, how we can get that highest result
+
+### 16. 12:53
+> [v4B/ensemble results: ensemble 69.8, nolinks mixture 67.9, nolinks blend 68.6, nolinks selftrain 68.4] I think we started dipping after you changed how you measure the results maybe, perhaps that's the issue
+
+### 17. 13:04
+> ok carry on, but also note for the hard ones, having talked to a professional they said they will be many attributes working together to identify them, so maybe more data features also checking which ones work together to ususally make the hard cases, - have a look and continue also tell me what we are at and what we should be at going forward, really look into the data
+
+Output (13-17): v4 (link-model degree inputs removed, mixture floor, self-training, no-links variant, rank ensemble) regressed on the leaderboard; diagnosed which change cost what; restored v3 exactly (v5) and kept self-training as a variant. Relay context analysis (feeder funding, payee forwarding, multi-day relay reconstruction): weak signal.
+
+### 18. 13:09
+> v5_submission_selftrain.csv got 71.2, 95% precision,  30% recall
+
+Output: v6 self-training variants (2 rounds, 900 pseudo-positives); v7 floor variants isolated on the v3 base; relay-only model and within-cohort outlier test (both failed); report updated.
+
 ---
 
 ## Claude Code
